@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+	<title>PTG Data Viewer</title>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+			
+		<style>
+			#plot {
+				position: relative;
+				height: 500px;
+				width: 1200px;
+				background-color: #A2C4BE;
+			}
+			#buttonsDiv {
+				position: static;
+				top: 0%;
+				left: 420px;
+				width: 100px;
+			}
+			#info {
+				position: fixed;
+				bottom:0;
+				left: 615px;
+				
+				
+			}
+			p {
+				width: 600px
+			}
+			ul {
+				width: 570px
+			}
+		</style>
+			
+	</head>
+
+	<body>
+	
+		<div id='plot'></div>
+		
+		<div id='buttonsDiv'>
+			<ul id='buttons'>
+				<!--
+				<li><button onClick="companyButtonFunction('BP')">BP</button></li>
+				<li><button onClick="companyButtonFunction('Shell')">Shell</button></li>
+				-->
+			</ul>
+		</div>
+		<div id='info'>
+			<p>
+			This interactive data explorer is a template for an application to display payments to governments reports in a dynamic 
+			and easily updateable way. The data that underlies this sample can be found 
+			<a href="https://docs.google.com/spreadsheets/d/1H13ML4M2KrHmYeUpm0W_reHnhtwyMbsxsQDkW39drTU/edit?usp=sharing">here</a>. <br><br>
+			
+			The data explorer is designed such that when new data is added to the master data file, the data explorer will automatically update its
+			layout to reflect that new data, be it data for a new company or for a company's operations in a new country. This way, the data collection
+			does not depend on solely one organization; as long as it is added in the correct format, it can simply be re-uploaded to wherever the app is 
+			hosted.
+			<br><br>
+			This version of the data explorer has the following features:
+			<ul>
+				<li>Company buttons: will show the countries in which that company has payment data and the total amount</li>
+				<li>Clickable bars: clicking on a country bar in the company view will show the different governments the company paid in that country</li>
+				<li>Responsive bars: hovering over a bar will highlight it and show an infotip with the exact amount in the bar</li>
+			</ul>
+			<br>
+			A full-featured version could include:
+			<ul>
+				<li>Breakdowns by government and payment type (royalty, taxes, etc.) as a stacked bar chart or pie chart</li>
+				<li>Smooth transitions between different data views</li>
+				<li>Dropdown menu for company selection</li>
+				<li>Possible country view with payments by company</li>
+				<li>Improved and customizable styling</li>
+				<li>Many other customizations as needed</li>
+			</ul>
+			
+			</p>
+		
+		</div>
+		<script type="text/javascript">
+	//Setup//
+			d3.select('#info').remove()
+			
+			var margin = {top: 100, bottom: 40, left: 100, right: 100}
+			
+			var svgClientSize = d3.select('#plot').node().getBoundingClientRect();
+			
+			var width = svgClientSize.width - margin.left - margin.right
+			var height = svgClientSize.height - margin.top - margin.bottom
+			
+			var svg = d3.select('#plot').append('svg')
+							.attr('id', 'mainPlot')
+							.attr('width', width + margin.left + margin.right)
+							.attr('height', height + margin.top + margin.bottom)
+						.append('g')
+							.attr('transform', 'translate('+ margin.left +','+ margin.top +')')
+							.attr('id','mainG')
+			
+			
+			
+			
+			
+			var xScale //= d3.scaleLinear()
+				  //		.domain([0,200])		//needs new inputs
+				  //		.range([0, width]);
+
+			var yScale //= d3.scaleLinear()
+				  //		.domain([0,200])		//needs new inputs
+				  //		.range([height, 0]);
+			var yHeight
+			var BP
+			var Shell
+			var mydata
+			var subset
+			var companyButtonFunction
+			var byCompanyCountry
+			var names
+			var selectID
+			var byCompanyCountryGovt
+			var stackData
+			var tooltip = d3.select("body")
+										.append("div")
+										.attr('class','tooltip')
+										.style('color','black')
+										.style("position", "absolute")
+										.style("z-index", "10")
+										.style('background-color','white')
+	//End setup//
+	
+	//Make buttons dynamically
+			d3.csv('sampleData3.csv', function(data){
+				names = d3.map(data, function(d){return d.Company;}).keys()
+								
+				for(i=0; i < names.length; i++) {
+					d3.select('#buttons').append('li').append('button').text(names[i]).attr('onClick','companyButtonFunction("'+names[i]+'")')
+				}
+				
+			});
+		
+
+	//START
+			d3.csv('sampleData3.csv', function(data) {
+				mydata = data
+											 
+		//set up scales				
+			
+			
+		//sort data			
+			//BP = mydata.filter(function(entry) { return entry.Company === 'BP' })
+			//Shell = mydata.filter(function(entry) { return entry.Company === 'Shell' })
+				
+				byCompanyCountry = d3.nest()
+								.key(function(d){return d.Company})
+								.key(function(d){return d.Country})
+								.rollup(function(v){return d3.sum(v, function(d){return d.Amount})})
+								.entries(mydata)
+				
+				xScale = d3.scaleLinear()
+						.domain([0,byCompanyCountry])
+						.range([0,width])
+				
+				
+				
+		//FUNCTION companyButtonFunction()
+				companyButtonFunction = function(company) {
+					d3.selectAll('rect').remove()
+					d3.selectAll('.axis').remove()
+					d3.selectAll('text').remove()
+					d3.selectAll('line').remove()
+					
+					var min1 = d3.min(byCompanyCountry.filter(function(entry){return entry.key===company})[0].values, function(d) {return Number(d.value)})  /// input here
+					var max1 = d3.max(byCompanyCountry.filter(function(entry){return entry.key===company})[0].values, function(d) {return Number(d.value)})  /// input here
+					
+					yScale = d3.scaleLinear()
+							.domain([Math.min(0, min1), max1])
+							.range([height, 0]);
+					yHeight = d3.scaleLinear()
+							.domain([0, max1])
+							.range([0, height]);
+					yAxis = d3.axisLeft(yScale)
+				
+			//LEVEL ONE
+				//X-AXIS
+					svg.append('line')
+						.attr('y1',yScale(0))
+						.attr('y2',yScale(0))
+						.attr('x1',0)
+						.attr('x2',width)
+						.attr('stroke-width',2)
+						.attr('stroke','black')
+				//RECT	
+					svg.selectAll('rect')
+						.data(byCompanyCountry.filter(function(entry){return entry.key===company})[0].values.sort(compare))				/// input here
+						.enter()
+						.append('rect')
+							.attr('x', function(d,i){return (i * 100)+20})//d.values.length)
+							.attr('y', function(d){ return yScale(Math.max(0, d.value))})
+							.attr('height', function(d) {return Math.abs(yScale(d.value)-yScale(0))})
+							.attr('opacity', .7)
+							.attr('width',50)
+							.attr('id', function(d){return d.key})
+							.attr('class', function(d){return d.key.replace(/ /g,'')})
+							.attr('fill', function(d) {
+											if (d.value < 0) { return 'red'
+												} else {
+													'black'}
+									})
+					//RECT MOUSE EVENTS
+						.on('mouseover', function(d,i) {
+							d3.select(this)
+							    .attr('opacity',.9)
+							d3.select('.tooltip')
+								tooltip.transition()
+									.duration(200)
+									.style('visibility','visible')
+									.style('opacity',1)
+								tooltip.html('<b>$'+Math.round(Number(eval(d.value))).toLocaleString()+' million</b>')
+									.style('font-size','16px')
+									.style('font-family','sans-serif')
+									.style("left", (d3.event.pageX + 8) + "px")
+									.style("top", (d3.event.pageY - 35) + "px")
+							d3.selectAll('.' + this.getAttribute('class'))
+								.attr('font-size', '30px')
+						})
+						.on('mouseout', function(d,i) {
+							d3.select(this)
+							  .attr('stroke-width',0)
+							  .attr('opacity',.7)
+							tooltip.transition()
+								.duration(400)
+								.style('visibility','hidden')
+							d3.selectAll('.' + this.getAttribute('class'))
+								.attr('font-size', '16px')
+							})
+					//TEXT
+					svg.selectAll('text')
+						.data(byCompanyCountry.filter(function(entry){return entry.key===company})[0].values)				/// input here
+						.enter()
+						.append('text')
+							.text(function(d){return d.key})
+							.attr('x', function(d,i){return (i * 100)+45})
+							.attr('y', -10)
+							.attr('text-anchor', 'middle')
+							.attr('font-size', '16px')
+							.attr('id', function(d){return d.key})
+							.attr('class',function(d){return d.key.replace(/ /g,'')})
+						//TEXT MOUSE EVENTS
+						.on('mouseover', function(d,i) {
+							d3.select(this)
+								.attr('font-size','30px')
+							d3.selectAll('.' + this.getAttribute('class')).filter('rect') //works to select rect and not text or other
+								.attr('opacity','.9')
+						})
+						.on('mouseout', function(d,i) {
+							d3.select(this)
+								.attr('font-size', '16px')
+							d3.selectAll('.' + this.getAttribute('class')).filter('rect') //works to select rect and not text or other
+								.attr('opacity','.7')	
+						})
+					//Y-AXIS
+					svg.append('g')
+						.attr('id','yAxis')
+						.attr('class','axis')
+						.call(yAxis)
+					//PLOT TITLE
+					d3.select('svg').append('text')
+						.attr('x',svgClientSize.width/2)
+						.attr('y',margin.top/2)
+						.attr('text-anchor', 'middle')
+						.text(company+' Payments')
+						.style('font-size','18px').style('font-family','sans-serif')						
+					//AXIS TITLE
+					d3.select('svg').append('text')
+						.attr('x',10)
+						.attr('y',10)
+						.attr('text-anchor','middle')
+						.attr('transform','translate('+margin.left/2+','+((height/2)+margin.top)+') rotate(-90)')
+						.text('Million USD')
+			
+			//LEVEL TWO
+					d3.selectAll('rect')
+						.on('click', function() {
+										tooltip.transition()
+											.delay(1000)
+											.duration(1000)	
+											.style('visibility','hidden')
+										selectID = $(this).attr('id')
+										stackChart(company, selectID)
+									})
+					d3.selectAll('text')
+						.on('click', function() {
+										tooltip.transition()
+											.delay(1000)
+											.duration(1000)	
+											.style('visibility','hidden')
+										selectID = $(this).attr('id')
+										stackChart(company, selectID)
+										
+										
+									})
+				};
+					
+			});
+	//-------------------------------------------------------------------------------------------------------------
+	//--------------------------------END BUILD FUNCTION, DEFINE OUTSIDE FUNCTIONS---------------------------------
+	//-------------------------------------------------------------------------------------------------------------
+		
+		
+		//FUNCTION compare  (to sort data for bars)
+			function compare(a,b) {
+			  return b.value - a.value
+			}
+			
+	
+		//FUNCTION stackChart
+			
+			var dataX
+			
+			function stackChart(company, country) {
+			
+			//Variables
+				d3.selectAll('text').remove()
+				var x = d3.scaleBand()
+						.rangeRound([0, width])
+						.padding(0.3)
+						.align(0.3);
+				var y = d3.scaleLinear()
+							.rangeRound([height, 0]);
+				var z = d3.scaleOrdinal(d3.schemeCategory20);
+				var stack = d3.stack();
+			
+				d3.csv("sampleData3.csv", function(error, data) {
+			//CLEAR OLD ELEMENTS		
+					d3.selectAll('svg > g > *').remove()
+					var result = []
+			//-------------------------------------------------------------------------------------
+				
+			//PARSE DATA
+				
+					var mydata = data.filter(function(entry){return entry.Company===company && entry.Country===country})
+					var govts = d3.nest()
+								.key(function(d) { return d.Government; })
+								.entries(mydata)
+								.map(function(d) { return d.key; });
+					var types = d3.nest()
+								.key(function(d) { return d.Type; })
+								.entries(mydata)
+								.map(function(d) { return d.key; });
+					
+					var newData = govts.map(function(d) {
+					  var item = {
+						name:  d
+					  };
+					  types.forEach(function(e) {
+						var itemForGroup = mydata.filter(function(f) {
+						  return f.Type === e && f.Government === d;
+						});
+						if (itemForGroup.length) {
+						  item[e] = Number(itemForGroup[0].Amount);
+						} else {
+						  item[e] = 0;
+						}
+					  })
+					  return item;
+					})
+				//get sum for scale maximum below; store in 'result'	
+					for (var i = 0; i < newData.length; i++) {
+					  var sum = 0;
+					  for (var key in newData[i]) {
+						if (key != 'name') {
+						  sum += newData[i][key];
+						}
+					  }
+					  result.push({ date: newData[i].name, sum: sum });
+					};
+					
+					var max4scale = d3.max(result,function(d){return d.sum})
+					var min4scale = d3.min(result,function(d){return d.sum})
+				//-------------------------------------------------------------------------------------
+			
+			//SCALES	
+					x.domain(newData.map(function(d) { return d.name; }));
+					y.domain([0, max4scale + (max4scale*.04)])		//change scale here
+					z.domain(Object.keys(newData[0]).slice(1));
+				//-------------------------------------------------------------------------------------
+				dataCheck = stack.keys(Object.keys(newData[0]).slice(1))(newData)					
+			//CREATE PLOT
+					var dataStack = stack.keys(Object.keys(newData[0]).slice(1))(newData)
+					dataX = stack.keys(Object.keys(newData[0]).slice(1))(newData)
+					
+					svg.selectAll('.serie')	
+						.data(dataStack)
+						.enter()
+						.append('g')
+							.attr('class','serie')
+							.attr('fill', function(d) {return z(d.key)})
+						.selectAll('rect')
+							.data(function(d) {return d})
+							.enter()
+							.append('rect')
+								.attr('x', function(d){return x(d.data.name)})
+								.attr('y', function(d){return y(d[1])})
+								.attr('height', function(d){return y(d[0]) - y(d[1])})
+								.attr('name',function(d){return d[1]-d[0]})
+								.attr('width', x.bandwidth())
+								//.attr('name',function(d){d[0]})
+								//.attr('class', function(d) { return d.key})
+				console.log(dataStack[0].key)
+				
+				//AXIS
+					svg.append('g')
+						.attr('class','axis')
+						.call(d3.axisLeft(y))
+					svg.append('g')
+						.attr('class','axis')
+						.attr('transform','translate(0,'+height+')')
+						.call(d3.axisBottom(x))
+				
+				//LEGEND
+					var legend = svg.selectAll('.legend')
+						.data(Object.keys(newData[0]).slice(1).reverse())
+						.enter()
+						.append('g')
+							.attr('class','legend')
+							.attr('transform', function(d,i){return 'translate(0,'+(i*20)+')'})
+							.style('font','10px sans-serif')
+					//console.log(Object.keys(newData[0]).slice(1).reverse())
+					
+					legend.append('rect')
+							.attr('x', width-40)
+							.attr('width',18)
+							.attr('height',18)
+							.attr('fill',z)
+					legend.append('text')
+						.attr('x', width+44-18-20-20)
+						.attr('y', 9)
+						.attr('dy','.35em')
+						.attr('text-anchor','start')
+						.text(function(d){return d})
+				//TOOLTIP
+					svg.selectAll('rect')
+						.on('mouseover',function(d){
+							var xPos = parseFloat(d3.select(this).attr('x'))
+							var yPos = parseFloat(d3.select(this).attr('y'))
+							var xWidth = parseFloat(d3.select(this).attr('width'))
+							var height = parseFloat(d3.select(this).attr('height'))
+							
+							svg.append('text')
+								.attr('x', xPos + (xWidth/2))
+								.attr('y', yPos)// + (height/2))
+								.attr('class','tooltip')
+								.attr('text-anchor','middle')
+								.style('font-family','sans-serif')
+								.text('$'+parseFloat(d3.select(this).attr('name')).toFixed(2)+' million')
+						})
+						.on('mouseout', function(d){
+							svg.select('.tooltip').remove()
+						})
+				//PLOT TITLE	
+					d3.select('svg').append('text')
+							.attr('x',svgClientSize.width/2)
+							.attr('y', (margin.top/2))
+							.attr('text-anchor', 'middle')
+							.text(company+' Payments in '+country)
+							.style('font-size','18px').style('font-family','sans-serif')
+				//AXIS TITLE
+					d3.select('svg').append('text')
+						.attr('x',10)
+						.attr('y',10)
+						.attr('text-anchor','middle')
+						.attr('transform','translate('+margin.left/2+','+((height/2)+margin.top)+') rotate(-90)')
+						.text('Million USD')
+				});
+			};
+
+			
+			
+			
+		</script>
+	</body>
+
+
+</html>
