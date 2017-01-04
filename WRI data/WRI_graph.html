@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+	
+	<head>
+		<meta charset="utf-8">
+		<title>WRI Graph</title>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+		
+		<style>
+			#plot {
+				height: 600px;
+				width: 1400px;
+				background-color: white
+			}
+		</style>
+	</head>
+
+	<body>
+		
+		<div id='plot'></div>
+		<div>
+			This interactive chart is an expanded version of the graphic made by the World Resources Institute found <a target="_blank" href="http://www.wri.org/resources/charts-graphs/top-10-emitters-2012">here</a>.
+			It shows, as a percentage of the world total, the greenhouse gas emissions, GDP, and population for the ten largest greenhouse gas emitters in 2012, plus the rest of the world as one group.
+			<br><br>
+			
+			The data I used was downloaded from the linked page. It comes from the CAIT - Historical Emissions Data datasets. I used the raw data in the 'Socio-Economic' and 'GHG Emmisions' datasets found in that download
+			to calculate the 
+			values in used in the chart (rather than downloading only the exact values found in the chart) using R. I was unable to reconcile the apparent differences in the values I calculated versus those seen on
+			the WRI chart.<br><br>
+			
+			The interactive features of this chart include a hover-over effect that emphasizes the country's section in each bar and it's corresponding legend. Additionally, the exact values of each section that is hovered
+			over appear at the top of the bar. This allows the user to know the exact amount of each variable to easily compare them.<br><br><br><br>
+			
+			<i> Data citation: CAIT Climate Data Explorer. 2015. Washington, DC: World Resources Institute. Available online at: http://cait.wri.org</i>
+			
+		</div>
+		
+		
+		<script>
+			var margin = {top:150, bottom:40, left:40, right:200}
+			var width = 1400 - margin.left - margin.right
+			var height = 600 - margin.top - margin.bottom
+			
+			var svg = d3.select('#plot').append('svg')
+							.attr('width', width + margin.left + margin.right)
+							.attr('height', height + margin.top + margin.bottom)
+						.append('g')
+							.attr('transform','translate('+margin.left+','+margin.top+')')
+			
+			var dat
+			var x = d3.scaleBand()
+						.rangeRound([0, width])
+						.padding(0.3)
+						.align(0.3);
+			var y = d3.scaleLinear()
+						.rangeRound([height, 0]);
+			var z = d3.scaleOrdinal().range(['#C72127','#199CCD','#7B2164','#EA8523','#97BE3E','#EC1C38','#067B4E','#0D4069','#F9DA07','#9B9C9B','#FFFFFF'])//(d3.schemeCategory20);
+			
+			var z2 = d3.scaleOrdinal()
+			
+			var stack = d3.stack();
+			var result = []
+			
+			d3.select('svg').append('text')
+				.attr('x',(width+margin.right+margin.left)/2)
+				.attr('y',margin.top/2)
+				.attr('text-anchor','middle')
+				.text('Top 10 Emitters in 2012 (based on graph and data from WRI)')
+			
+		//START GRAPH	
+			
+			d3.csv('dataSorted2.csv', function(data) {
+				//data.forEach(function(d){ 
+					//d.Brazil = +d.Brazil; 
+					//d.Canada = +d.Canada; 
+					//d.China = +d.China; 
+					//d.EU = +d.EU; 
+					//d.India = +d.India; 
+					//d.Indonesia = +d.Indonesia;
+					//d.Japan = +d.Japan; 
+					//d.Mexico = +d.Mexico;
+					//d['Rest of World'] = +d['Rest of World']; 
+					//d['Russian Federation'] = +d['Russian Federation']; 
+					//d['United States'] = +d['United States']; 
+					//"Brazil","Canada","China","EU","India","Indonesia","Japan","Mexico","Rest of World","Russian Federation","United States"
+					//})
+				//data.sort(function(a,b){return b.Canada-a.Canada});
+				dat = data
+				
+				
+				dat = data.filter(function(entry){return entry.Year==='2012'});
+				
+				//get sum of data to calculate maximum for y scale
+				for(var i=0; i<dat.length; i++) {
+					var sum=0;
+					for(var key in dat[i]) {
+						if(key != 'Type' && key!= 'Year') {
+							sum += +dat[i][key];
+						}
+					}
+					result.push({date: dat[i].Type, sum: sum});
+				};
+				
+
+				var max4scale = d3.max(result,function(d){return d.sum})
+				var min4scale = d3.min(result,function(d){return d.sum})
+			//SCALES
+				x.domain(dat.map(function(d){return d.Type}));
+				y.domain([0, max4scale + (max4scale*.03)]);
+				z.domain(Object.keys(dat[0]).slice(2))
+			
+			//CREATE PLOT
+				
+				
+				var dataStack = stack.keys(Object.keys(dat[0]).slice(2))(dat)
+				
+				svg.selectAll('.serie')
+					.data(dataStack)
+					.enter()
+					.append('g')
+						.attr('class','serie')	
+						.attr('name', function(d){return d.key.replace(/ /g,'')})								//set class of g rect element equal to class of 
+						.attr('fill',function(d){return z(d.key)})
+					.selectAll('rect')
+						.data(function(d){return d})
+						.enter()
+						.append('rect')
+							.attr('x', function(d) {return x(d.data.Type)})
+							.attr('y', function(d) {return y(d[1])})
+							.attr('height', function(d) {return y(d[0])-y(d[1])})
+							.attr('width', x.bandwidth())
+							.attr('name',function(d){return d[1]-d[0]})
+							.attr('class', function(d){return d.data.Type})//function(d,i){return i}) //
+							.attr('stroke-width',1)
+							.attr('stroke','black')
+							//.attr('opacity',.7)
+				//AXIS
+					svg.append('g')
+						.attr('class','axis')
+						.attr('transform','translate(0,'+height+')')
+						.call(d3.axisBottom(x))
+					svg.append('g')
+						.attr('class','axis')
+						
+						.call(d3.axisLeft(y).tickFormat(function(d) { return parseInt(d, 10) + "%"; }))
+				//LEGEND
+					var legend = svg.selectAll('.legend')
+									.data(Object.keys(dat[0]).slice(2).reverse())
+									.enter()
+									.append('g')
+										.attr('name', function(d){return d.replace(/ /g,'')})
+										.attr('class','legend')
+										.attr('transform',function(d,i) {return 'translate(0,'+(i*20)+')'})
+						
+						legend.append('rect')
+								.attr('x',width-40)
+								.attr('width',18)
+								.attr('height',18)
+								.attr('fill',z)
+								//.attr('name', function(d){return d.replace(/ /g,'')})
+								.attr('class','legend_rect')
+						legend.append('text')
+								.attr('x',width+10)
+								.attr('y',5)
+								.attr('dy','.35em')
+								.attr('text-anchor','start')
+								.text(function(d){return d})
+				//TOOLTIP
+					var currentName
+					
+					d3.selectAll('.serie')
+						.on('mouseover', function(d,i){
+							var window = ['GDP','GHG','Population']
+							svg.selectAll('.window')
+								.data(window)
+								.enter()
+								.append('text')
+									.attr('class','window')
+									.attr('x', function(d,i){return x(d)})
+									.attr('y', 0)
+									.text(function(d){return d+':'})
+							
+							var current = this
+							
+							
+							d3.selectAll('.serie').style('opacity', function(){return (this===current) ? 2:.5})	
+								
+							d3.select(this).selectAll('text')
+									.data(function(d){return d})
+									.enter()
+									.append('text')
+										.attr('x', function(d) {return x(d.data.Type)+80})
+										.attr('y',0)
+										.attr('class', 'amount')
+										.attr('fill','black')
+										.text(function(d){return Number(d[1]-d[0]).toFixed(2) +'%'})
+							
+							currentName = d3.select(this).attr('name')
+							
+								
+							d3.selectAll('.legend').style('opacity', .5)
+							d3.selectAll('[name='+currentName+']').style('opacity',3)
+							d3.selectAll('[name='+currentName+']>.legend_rect').attr('stroke','black')
+						})
+						
+						.on('mouseout', function(d,i){
+							d3.select(this)
+								.style('opacity', 1)
+							d3.selectAll('.serie')
+								.style('opacity',1)
+							d3.selectAll('.legend')
+								.style('opacity', 1)
+							d3.selectAll('[name='+currentName+']>.legend_rect').attr('stroke','none')
+							d3.selectAll('.window').remove()
+							d3.selectAll('.amount').remove()
+						})
+				
+				//Info windows
+					
+						
+				
+				
+			});
+		
+		//FUNCTIONS	
+			//Filter function
+			
+			function filterBars() {
+				d3.selectAll('.serie:not([name=RestofWorld])')
+					.transition()
+					.duration(500)
+					.attr('fill','white')
+				d3.selectAll('.serie:not([name=RestofWorld])>rect')
+					.transition()
+					.duration(500)
+					.attr('stroke','white')
+					
+				d3.selectAll('.serie>[name=RestofWorld]')
+					.attr('fill','black')
+				d3.selectAll('.serie>[name=RestofWorld]').selectAll('g>rect')
+					.attr('x',0)
+			
+			}
+			
+		
+		
+		</script>
+	</body>
+
+
+</html>

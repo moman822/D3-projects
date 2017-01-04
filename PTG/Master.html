@@ -121,6 +121,7 @@
 			var selectID
 			var byCompanyCountryGovt
 			var stackData
+			var currentCompany
 			var tooltip = d3.select("body")
 										.append("div")
 										.attr('class','tooltip')
@@ -170,9 +171,12 @@
 					d3.selectAll('.axis').remove()
 					d3.selectAll('text').remove()
 					d3.selectAll('line').remove()
+					d3.selectAll('.backButton').remove()
 					
 					var min1 = d3.min(byCompanyCountry.filter(function(entry){return entry.key===company})[0].values, function(d) {return Number(d.value)})  /// input here
 					var max1 = d3.max(byCompanyCountry.filter(function(entry){return entry.key===company})[0].values, function(d) {return Number(d.value)})  /// input here
+					
+					//currentCompany = company
 					
 					yScale = d3.scaleLinear()
 							.domain([Math.min(0, min1), max1])
@@ -316,7 +320,7 @@
 			
 	
 		//FUNCTION stackChart
-			
+			var dataY
 			var dataX
 			
 			function stackChart(company, country) {
@@ -331,7 +335,8 @@
 							.rangeRound([height, 0]);
 				var z = d3.scaleOrdinal(d3.schemeCategory20);
 				var stack = d3.stack();
-			
+				
+				
 				d3.csv("sampleData3.csv", function(error, data) {
 			//CLEAR OLD ELEMENTS		
 					d3.selectAll('svg > g > *').remove()
@@ -339,7 +344,7 @@
 			//-------------------------------------------------------------------------------------
 				
 			//PARSE DATA
-				
+					currentCompany = company
 					var mydata = data.filter(function(entry){return entry.Company===company && entry.Country===country})
 					var govts = d3.nest()
 								.key(function(d) { return d.Government; })
@@ -376,6 +381,8 @@
 					  }
 					  result.push({ date: newData[i].name, sum: sum });
 					};
+					
+					dataY = newData
 					
 					var max4scale = d3.max(result,function(d){return d.sum})
 					var min4scale = d3.min(result,function(d){return d.sum})
@@ -475,6 +482,15 @@
 						.attr('text-anchor','middle')
 						.attr('transform','translate('+margin.left/2+','+((height/2)+margin.top)+') rotate(-90)')
 						.text('Million USD')
+				//Double click
+					d3.select('body').append('button')
+						.text('Back')
+						.attr('class', 'backButton')
+						.style('top', '465px')
+						.style('left', '1125px')
+						.style('position','absolute')
+						.style('z-index',10)
+						.attr('onClick', 'companyButtonFunction("'+company+'")')
 				});
 			};
 		

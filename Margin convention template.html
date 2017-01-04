@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+	
+	<head>
+		<meta charset="utf-8">
+		<title>TITLE</title>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+		
+		<style>
+			#plot {
+				height: 600px;
+				width: 1000px;
+				background-color: aqua
+			}
+		</style>
+	</head>
+
+	<body>
+		
+		<div id='plot'></div>
+		
+		
+		<script>
+			var margin = {top:40, bottom:40, left:40, right:40}
+			var width = 1000 - margin.left - margin.right
+			var height = 600 - margin.top - margin.bottom
+			
+			var svg = d3.select('#plot').append('svg')
+							.attr('width', width + margin.left + margin.right)
+							.attr('height', height + margin.top + margin.bottom)
+						.append('g')
+							.attr('transform','translate('+margin.left+','+margin.top+')')
+			
+			svg.append('circle').attr('cx',0).attr('cy',0).attr('r',5)
+			
+		
+		
+		</script>
+	</body>
+
+
+</html>

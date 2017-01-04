@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+	<title>Group Chart 2</title>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+			
+		<style>
+			#plot {
+				position: fixed;
+				height: 400px;
+				width: 1200px;
+				background-color: aqua;
+			}
+		</style>
+			
+	</head>
+
+	<body>
+	
+		<div id='plot'></div>
+		
+		<script type="text/javascript">
+			
+			var margin = {top: 60, bottom: 40, left: 100, right: 100}
+			
+			var svgClientSize = d3.select('#plot').node().getBoundingClientRect();
+			
+			var width = svgClientSize.width - margin.left - margin.right
+			var height = svgClientSize.height - margin.top - margin.bottom
+			
+			
+			
+			var svg = d3.select('#plot').append('svg')
+							.attr('id','graph')
+							.attr('width', width + margin.left + margin.right)
+							.attr('height', height + margin.top + margin.bottom)
+						.append('g')
+							.attr('id','graph')
+							.attr('transform', 'translate('+ margin.left +','+ margin.top +')')
+			var x0 = d3.scaleBand()
+						.rangeRound([0, width])
+						.paddingInner(0.1)
+						//.align(0.3);
+						
+			var x1 = d3.scaleBand()
+						.padding(0.0)			
+			
+			var y = d3.scaleLinear()
+						.rangeRound([height, 0]);
+						
+			var z = d3.scaleOrdinal(d3.schemeCategory20);
+			
+			var stack = d3.stack();
+			
+			var mydata			
+			var govts
+			var types
+			var newData
+			//var item
+			//var itemForGroup
+			//var layers
+			//var allData
+			//var stackData
+			var result //= [];
+			//var max4scale
+			var allData
+			
+			var x0 = d3.scaleOrdinal()
+			var pad = .1
+			var padPixel = 5;
+			var yScale = d3.scaleLinear().range([0, width]);
+			var x0Range
+			
+			
+			function groupChart(company, country) {
+				
+				
+				
+				d3.csv("sampleData3.csv", function(error, data) {
+			//CLEAR OLD ELEMENTS		
+					d3.selectAll('svg > g > *').remove()
+					result = []
+				//-------------------------------------------------------------------------------------
+				
+			//PARSE DATA
+					allData = data
+					console.log(data)
+					mydata = data.filter(function(entry){return entry.Company===company && entry.Country===country})//.filter(function(key){return key=='Government' || key=='Type' || key=='Amount'})
+					
+					d3.keys(mydata[0]).filter(function(key){return key=='Government' || key=='Type' || key=='Amount'})
+					
+					//mydata.forEach(function(d) { d.
+					
+					console.log(data)
+			  var barHeight = height / data.length;
+
+			  x0.domain(data.map(function(d) {
+				return d.Government;
+			  }));
+			  
+			  x0Range = [0];
+			  
+			  districtD = d3.nest()
+				.key(function(mydata) {
+				  return mydata.Government;
+				})
+				.rollup(function(mydata) {
+				  var barSpace = (barHeight * mydata.length);
+				  x0Range.push(x0Range[x0Range.length - 1] + barSpace);
+				  return d3.scaleBand()
+					.domain(mydata.map(function(c) {
+					  return c.Type
+					}))
+					.rangeRound([0, barSpace], pad);
+				})
+				.map(mydata);
+			  
+			  x0.range(x0Range);
+			  
+			  yScale.domain([0, d3.max(mydata, function(d) {
+				return d.Amount;
+			  })]);
+
+			  //svg.append("g")
+				//.attr("class", "x axis")
+				//.attr("transform", "translate(0," + height + ")")
+				//.call(xAxis)
+				//.selectAll("text")
+				//.style("text-anchor", "middle");
+
+			  //svg.append("g")
+				//.attr("class", "y axis")
+				//.call(yAxis)
+				//.append("text");
+
+			  svg.selectAll("bar")
+				.data(mydata)
+				.enter().append("rect")
+				//.style("fill", function(d, i) {
+				//  return color(d.Government);
+				//})
+				.attr("y", 0)
+				.attr("x", function(d) {
+				  return x0(d.Government) + districtD['$'+d.Government](d.Type);
+				})
+				.attr("width", function(d) {
+				  return districtD[d.Government].rangeBand();
+				})
+				.attr("height", function(d) {
+				  return yScale(d.Amount);
+				});
+
+			  var ls = svg.selectAll(".labels")
+				.data(data)
+				.enter().append("g");
+				
+			  ls.append("text")
+				.text(function(d) {
+				  return (d.Amount);
+				})
+				.attr("text-anchor", "start")
+				.attr("y", function(d) {
+				  return yScale(d.Amount)
+				})
+				.attr("x", function(d) {
+				  return x0(d.district) + districtD[d.Government](d.Type) + districtD[d.Government].rangeBand() / 2;
+				})
+				.attr("class", "label");
+
+			  ls.append("text")
+				.text(function(d) {
+				  return (d.Type);
+				})
+				.attr("text-anchor", "end")
+				.attr("y", -2)
+				.attr("x", function(d) {
+				  return x0(d.district) + districtD[d.Government](d.Type) + districtD[d.Government].rangeBand() / 2;
+				})
+				.style("alignment-baseline", "middle")
+				.attr("class", "label");
+
+					
+					
+			});
+		}		
+				
+				
+			
+		</script>
+	</body>
+
+
+</html>

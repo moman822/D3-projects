@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+	<title>Group Chart</title>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+			
+		<style>
+			#plot {
+				position: fixed;
+				height: 400px;
+				width: 1200px;
+				background-color: aqua;
+			}
+		</style>
+			
+	</head>
+
+	<body>
+	
+		<div id='plot'></div>
+		
+		<script type="text/javascript">
+			
+			var margin = {top: 60, bottom: 40, left: 100, right: 100}
+			
+			var svgClientSize = d3.select('#plot').node().getBoundingClientRect();
+			
+			var width = svgClientSize.width - margin.left - margin.right
+			var height = svgClientSize.height - margin.top - margin.bottom
+			
+			
+			
+			var svg = d3.select('#plot').append('svg')
+							.attr('id','graph')
+							.attr('width', width + margin.left + margin.right)
+							.attr('height', height + margin.top + margin.bottom)
+						.append('g')
+							.attr('id','graph')
+							.attr('transform', 'translate('+ margin.left +','+ margin.top +')')
+			var x0 = d3.scaleBand()
+						.rangeRound([0, width])
+						.paddingInner(0.1)
+						//.align(0.3);
+						
+			var x1 = d3.scaleBand()
+						.padding(0.0)			
+			
+			var y = d3.scaleLinear()
+						.rangeRound([height, 0]);
+						
+			var z = d3.scaleOrdinal(d3.schemeCategory20);
+			
+			var stack = d3.stack();
+			
+			var mydata			
+			var govts
+			var types
+			var newData
+			//var item
+			//var itemForGroup
+			//var layers
+			//var allData
+			//var stackData
+			var result //= [];
+			//var max4scale
+			var allData
+			
+			function groupChart(company, country) {
+				
+				
+				
+				d3.csv("sampleData3.csv", function(error, data) {
+			//CLEAR OLD ELEMENTS		
+					d3.selectAll('svg > g > *').remove()
+					result = []
+				//-------------------------------------------------------------------------------------
+				
+			//PARSE DATA
+					allData = data
+					console.log(data)
+					mydata = data.filter(function(entry){return entry.Company===company && entry.Country===country})
+					govts = d3.nest()
+								.key(function(d) { return d.Government; })
+								.entries(mydata)
+								.map(function(d) { return d.key; });
+					types = d3.nest()
+								.key(function(d) { return d.Type; })
+								.entries(mydata)
+								.map(function(d) { return d.key; });
+					
+					newData = govts.map(function(d) {
+					  var item = {
+						name:  d
+					  };
+					  types.forEach(function(e) {
+						var itemForGroup = mydata.filter(function(f) {
+						  return f.Type === e && f.Government === d;
+						});
+						if (itemForGroup.length) {
+						  item[e] = Number(itemForGroup[0].Amount);
+						} else {
+						  item[e] = 0;
+						}
+					  })
+					  return item;
+					})
+				//get sum for scale maximum below; store in 'result'	
+					for (var i = 0; i < newData.length; i++) {
+					  var sum = 0;
+					  for (var key in newData[i]) {
+						if (key != 'name') {
+						  sum += newData[i][key];
+						}
+					  }
+					  result.push({ date: newData[i].name, sum: sum });
+					};
+					
+					var max4scale = d3.max(result,function(d){return d.sum})
+				//-------------------------------------------------------------------------------------
+			
+			//SCALES	
+					x0.domain(newData.map(function(d) { return d.name; }));							//Scale for government (primary)
+					x1.domain(Object.keys(newData[0]).slice(1)).rangeRound([0,20])//x0.bandwidth()])		//Scale for payment type (secondary)
+					y.domain([0, max4scale + (max4scale*.04)])//d3.max(result,function(d){return d.sum})])
+					
+					//z.domain(Object.keys(newData[0]).slice(1)); //returns array of the column names minus the first one
+				//-------------------------------------------------------------------------------------
+									
+			//CREATE PLOT
+					svg.selectAll('g')
+						.data(newData)
+						.enter()
+						.append('g')
+							.attr('transform', function(d) {return 'translate('+x0(d.name)+',0)'})
+						.selectAll('rect')
+							.data(function(d, i) { return Object.keys(newData[i]).slice(1).map(function(key) { return {key: key, value: newData[i][key]}; }); })
+							.enter()
+							.append('rect')
+								.attr('x', function(d) {return x1(d.key)})
+								.attr('y', function(d) {return y(d.value)})
+								.attr('width', x1.bandwidth())
+								.attr('height', function(d) {return height - y(d.value)})
+								.attr('fill', function(d) {return z(d.key)})
+						
+					svg.append('g')
+						.attr('transform','translate(0,'+height+')')
+						.call(d3.axisBottom(x0))
+						
+					svg.append('g')
+						.call(d3.axisLeft(y))
+					
+					var legend = svg.append('g')
+					
+					
+					
+					var legend = svg.selectAll('.legend')
+						.data(Object.keys(newData[0]).slice(1).reverse())
+						.enter()
+						.append('g')
+							.attr('class','legend')
+							.attr('transform', function(d,i){return 'translate(0,'+(i*20)+')'})
+							.style('font','10px sans-serif')
+					//console.log(Object.keys(newData[0]).slice(1).reverse())
+					
+					legend.append('rect')
+							.attr('x', width-40)
+							.attr('width',18)
+							.attr('height',18)
+							.attr('fill',z)
+					legend.append('text')
+						.attr('x', width+44-18-20-20)
+						.attr('y', 9)
+						.attr('dy','.35em')
+						.attr('text-anchor','start')
+						.text(function(d){return d})
+					
+
+					
+			});
+		}		
+				
+				
+			
+		</script>
+	</body>
+
+
+</html>
